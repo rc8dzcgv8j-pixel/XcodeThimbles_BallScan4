@@ -1,0 +1,2352 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X~Code● - Thimbles Detector</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #00ff88;
+            --primary-dim: #00cc6a;
+            --bg-dark: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-input: #1a1a24;
+            --text: #e0e0e0;
+            --text-dim: #888;
+            --accent: #ff6b35;
+            --glow: rgba(0, 255, 136, 0.4);
+            --ws-connected: #00ff88;
+            --ws-disconnected: #ff6b35;
+            --ws-connecting: #ffcc00;
+        }
+
+        .dark {
+            --primary: #00ff88;
+            --primary-dim: #00cc6a;
+            --bg-dark: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-input: #1a1a24;
+            --text: #e0e0e0;
+            --text-dim: #888;
+        }
+
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            background: #000;
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Matrix Background */
+        .matrix {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .matrix canvas {
+            display: block;
+        }
+
+        .app-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 30px 20px;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(0, 255, 136, 0.05) 100%);
+            border: 1px solid var(--primary-dim);
+            border-radius: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 200%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.1), transparent);
+            animation: headerShine 3s ease-in-out infinite;
+        }
+
+        @keyframes headerShine {
+            0%, 100% { transform: translateX(-50%); }
+            50% { transform: translateX(50%); }
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+
+        .badge-img {
+            height: 55px;
+            width: auto;
+            border-radius: 8px;
+            filter: drop-shadow(0 0 10px var(--glow));
+            transition: transform 0.3s ease;
+        }
+
+        .badge-img:hover {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .brand-name {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 32px;
+            font-weight: 900;
+            color: var(--primary);
+            text-shadow: 0 0 20px var(--glow), 0 0 40px var(--glow);
+            letter-spacing: 2px;
+        }
+
+        .version-tag {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(0, 255, 136, 0.15);
+            border: 1px solid var(--primary-dim);
+            border-radius: 20px;
+            font-size: 11px;
+            color: var(--primary);
+            margin-top: 8px;
+        }
+
+        /* WebSocket Status Bar */
+        .ws-status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 20px;
+            background: var(--bg-card);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .ws-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--ws-disconnected);
+            box-shadow: 0 0 10px var(--ws-disconnected);
+            transition: all 0.3s ease;
+        }
+
+        .ws-indicator.connected {
+            background: var(--ws-connected);
+            box-shadow: 0 0 15px var(--ws-connected);
+            animation: wsPulse 2s ease-in-out infinite;
+        }
+
+        .ws-indicator.connecting {
+            background: var(--ws-connecting);
+            box-shadow: 0 0 15px var(--ws-connecting);
+            animation: wsConnecting 0.5s ease-in-out infinite;
+        }
+
+        @keyframes wsPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+
+        @keyframes wsConnecting {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        .ws-status-text {
+            font-size: 12px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .ws-status-text.connected {
+            color: var(--ws-connected);
+        }
+
+        .ws-data-badge {
+            padding: 4px 10px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 15px;
+            font-size: 10px;
+            color: var(--primary);
+            margin-left: auto;
+        }
+
+        /* Session limit / cooldown alert */
+        .session-counter {
+            margin: -8px 0 18px;
+            text-align: center;
+            color: var(--text-dim);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            letter-spacing: 1px;
+        }
+        .session-counter strong { color: var(--primary); font-size: 13px; }
+        /* Les boîtes sont masquées pendant le cessez-le-feu. */
+        #cups-container.cooldown-hidden { display: none !important; }
+        #cups-container.cooldown-hidden + div { display: none !important; }
+        .session-alert {
+            display: none;
+            margin: 0 0 20px;
+            padding: 16px 14px;
+            text-align: center;
+            color: #ffeb3b;
+            background: rgba(30, 0, 0, 0.94);
+            border: 2px solid #ff2525;
+            border-radius: 12px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 800;
+            letter-spacing: 1px;
+            line-height: 1.6;
+            text-shadow: 0 0 7px #ff2525, 0 0 15px rgba(255, 0, 0, .9);
+            box-shadow: 0 0 10px rgba(255, 0, 0, .8), inset 0 0 12px rgba(255, 0, 0, .18);
+        }
+        .session-alert.active {
+            display: block;
+            animation: sessionAlertBlink 1s ease-in-out infinite;
+        }
+        .session-alert .cooldown-time {
+            display: block;
+            margin-top: 5px;
+            font-size: 20px;
+            color: #fff176;
+        }
+        @keyframes sessionAlertBlink {
+            0%, 100% { border-color: #ff2525; box-shadow: 0 0 8px #ff2525, inset 0 0 8px rgba(255,0,0,.18); }
+            50% { border-color: #ff8a80; box-shadow: 0 0 22px #ff1010, 0 0 32px rgba(255,0,0,.65), inset 0 0 14px rgba(255,0,0,.3); }
+        }
+
+        /* Control Panel */
+        .control-section {
+            background: var(--bg-card);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+
+        /* Screen Capture Section */
+        .capture-section {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 100, 100, 0.35);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .capture-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .capture-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            color: #ff8888;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .capture-status {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(255, 80, 80, 0.15);
+            border: 1px solid rgba(255, 80, 80, 0.4);
+            color: #ff8888;
+        }
+
+        .capture-status.active {
+            background: rgba(0, 255, 136, 0.15);
+            border-color: var(--primary-dim);
+            color: var(--primary);
+        }
+
+        .capture-preview {
+            width: 100%;
+            max-height: 160px;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 12px;
+            display: none;
+            border: 1px solid rgba(255, 100, 100, 0.3);
+        }
+
+        .capture-preview.active {
+            display: block;
+        }
+
+        .capture-preview video {
+            width: 100%;
+            height: 160px;
+            object-fit: contain;
+            background: #000;
+        }
+
+        .capture-btn {
+            width: 100%;
+            padding: 12px;
+            background: transparent;
+            border: 2px solid #ff6666;
+            border-radius: 10px;
+            color: #ff8888;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .capture-btn:hover {
+            background: rgba(255, 80, 80, 0.15);
+            box-shadow: 0 0 20px rgba(255, 80, 80, 0.3);
+        }
+
+        .capture-btn.active {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        .capture-warning {
+            display: none;
+            margin-top: 10px;
+            padding: 10px 14px;
+            background: rgba(255, 50, 50, 0.12);
+            border: 1px solid #ff4444;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #ff6666;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .capture-warning.visible {
+            display: block;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 14px 18px;
+            background: var(--bg-input);
+            border: 2px solid rgba(0, 255, 136, 0.3);
+            border-radius: 10px;
+            color: var(--text);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 20px var(--glow);
+        }
+
+        .input-field::placeholder {
+            color: var(--text-dim);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px 20px;
+            border: 2px solid var(--primary);
+            border-radius: 10px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: var(--bg-dark);
+        }
+
+        .btn-primary:hover {
+            background: #00ffaa;
+            box-shadow: 0 0 30px var(--glow);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* Prediction Box - CENTERED SINGLE BOX */
+        .prediction-container {
+            background: var(--bg-card);
+            border: 2px solid var(--primary);
+            border-radius: 20px;
+            padding: 40px 30px;
+            margin-bottom: 25px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(0, 255, 136, 0.15);
+        }
+
+        .prediction-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+        }
+
+        .prediction-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 25px;
+        }
+
+        /* JOUER Alert Banner - Compact */
+        .jouer-alert {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, rgba(255, 0, 0, 0.12) 0%, rgba(255, 50, 50, 0.18) 100%);
+            border: 2px solid #ff3333;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            animation: jouerPulse 0.8s ease-in-out infinite;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+        }
+
+        .jouer-alert.active {
+            display: flex;
+        }
+
+        @keyframes jouerPulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+            }
+            50% {
+                transform: scale(1.01);
+                box-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
+            }
+        }
+
+        .jouer-dot {
+            width: 12px;
+            height: 12px;
+            background: #ff0000;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #ff0000, 0 0 20px #ff3333;
+            animation: dotFlash 0.4s ease-in-out infinite;
+        }
+
+        @keyframes dotFlash {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.4;
+                transform: scale(0.8);
+            }
+        }
+
+        .jouer-text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            color: #ff3333;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.6);
+        }
+
+        .jouer-countdown {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: #ffcc00;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .prediction-display {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            margin: 0 auto 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .prediction-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 3px solid rgba(0, 255, 136, 0.3);
+            border-radius: 50%;
+            animation: ringPulse 2s ease-in-out infinite;
+        }
+
+        .prediction-ring:nth-child(2) {
+            width: 85%;
+            height: 85%;
+            animation-delay: 0.3s;
+        }
+
+        .prediction-ring:nth-child(3) {
+            width: 70%;
+            height: 70%;
+            animation-delay: 0.6s;
+        }
+
+        @keyframes ringPulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+
+        .prediction-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 72px;
+            font-weight: 900;
+            color: var(--primary);
+            text-shadow: 0 0 30px var(--glow), 0 0 60px var(--glow);
+            z-index: 2;
+            position: relative;
+        }
+
+        .prediction-value.scanning {
+            animation: scanPulse 1s ease-in-out infinite;
+        }
+
+        @keyframes scanPulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .prediction-label {
+            font-size: 18px;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .prediction-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--primary-dim);
+            border-radius: 25px;
+            font-size: 12px;
+            color: var(--primary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: dotBlink 1s ease-in-out infinite;
+        }
+
+        @keyframes dotBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .prediction-status.inactive .status-dot {
+            background: var(--text-dim);
+            animation: none;
+        }
+
+        /* Live Data Panel */
+        .live-data-panel {
+            background: rgba(0, 255, 136, 0.05);
+            border: 1px dashed rgba(0, 255, 136, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 11px;
+            transition: all 0.3s ease;
+        }
+
+        .live-data-panel.has-live-data {
+            background: rgba(0, 255, 136, 0.12);
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.25);
+        }
+
+        .live-data-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .live-data-title::before {
+            content: '◉';
+            animation: dotBlink 1s ease-in-out infinite;
+        }
+
+        .live-data-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .live-data-item {
+            text-align: center;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+        }
+
+        .live-data-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .live-data-label {
+            font-size: 9px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        /* Cups Visual */
+        .cups-visual {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 30px 0;
+        }
+
+        .cup-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .cup-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .cup-icon {
+            width: 60px;
+            height: 80px;
+            background: linear-gradient(145deg, #8B4513, #A0522D);
+            border-radius: 30px 30px 15px 15px;
+            position: relative;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .cup-icon::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle, #D2691E, #8B4513);
+            border-radius: 50% 50% 0 0;
+        }
+
+        .cup-item.active .cup-icon {
+            box-shadow: 0 0 30px var(--primary), 0 8px 20px rgba(0, 0, 0, 0.4);
+            border: 2px solid var(--primary);
+        }
+
+        .cup-item.active .cup-icon::after {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle, #FFD700, #FFA500);
+            border-radius: 50%;
+            box-shadow: 0 0 15px #FFD700;
+            animation: ballGlow 1s ease-in-out infinite alternate;
+        }
+
+        @keyframes ballGlow {
+            from { box-shadow: 0 0 10px #FFD700; }
+            to { box-shadow: 0 0 25px #FFD700, 0 0 35px #FFA500; }
+        }
+
+        .cup-number {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-dim);
+            transition: color 0.3s ease;
+        }
+
+        .cup-item.active .cup-number {
+            color: var(--primary);
+        }
+
+        /* Capteur de boîtes - rouge fort sur les 2 boîtes non retenues */
+        .cup-item.sensor-red .cup-icon {
+            background: linear-gradient(145deg, #6b1a1a, #a03030);
+            border: 3px solid #ff3333;
+            box-shadow: 0 0 25px rgba(255, 40, 40, 0.7), 0 8px 20px rgba(0, 0, 0, 0.5);
+            transform: scale(0.92);
+        }
+
+        .cup-item.sensor-red .cup-icon::before {
+            background: radial-gradient(circle, #c04040, #6b1a1a);
+        }
+
+        .cup-item.sensor-red .cup-number {
+            color: #ff5555;
+            font-weight: 900;
+        }
+
+        .cup-item.sensor-red {
+            opacity: 0.75;
+        }
+
+        /* Mode manuel - rond cochable */
+        .cup-item {
+            position: relative;
+        }
+
+        .cup-select-circle {
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            background: rgba(0, 0, 0, 0.4);
+            opacity: 0.5;
+            transition: all 0.25s ease;
+            z-index: 5;
+        }
+
+        .cup-item.manual-selected .cup-select-circle {
+            opacity: 1;
+            background: var(--primary);
+            border-color: var(--primary);
+            box-shadow: 0 0 12px var(--glow);
+        }
+
+        .cup-item.manual-selected .cup-select-circle::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            color: #000;
+            font-weight: 900;
+        }
+
+        .cup-item.manual-selected .cup-icon {
+            border: 2px solid var(--primary);
+            box-shadow: 0 0 20px var(--glow);
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: flex;
+            justify-content: space-around;
+            padding: 20px;
+            background: var(--bg-card);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        /* History */
+        .history-section {
+            background: var(--bg-card);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .history-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 12px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .history-clear {
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid var(--text-dim);
+            border-radius: 6px;
+            color: var(--text-dim);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .history-clear:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .history-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            min-height: 40px;
+        }
+
+        .history-item {
+            padding: 8px 14px;
+            background: var(--bg-input);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .history-item.correct {
+            background: rgba(0, 255, 136, 0.15);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .history-item.wrong {
+            background: rgba(255, 107, 53, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .history-item.live {
+            background: rgba(0, 200, 255, 0.15);
+            border-color: #00c8ff;
+            color: #00c8ff;
+        }
+
+        /* Startup Overlay */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 15, 0.98);
+            backdrop-filter: blur(10px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            visibility: visible;
+            transition: all 0.4s ease;
+        }
+
+        .overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .overlay-box {
+            background: var(--bg-card);
+            border: 2px solid var(--primary);
+            border-radius: 20px;
+            padding: 50px 40px;
+            text-align: center;
+            max-width: 380px;
+            width: 90%;
+            box-shadow: 0 0 60px var(--glow);
+            transform: scale(1);
+            transition: transform 0.4s ease;
+        }
+
+        .overlay.hidden .overlay-box {
+            transform: scale(0.9);
+        }
+
+        .overlay-brand {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--primary);
+            text-shadow: 0 0 20px var(--glow);
+            margin-bottom: 8px;
+        }
+
+        .overlay-subtitle {
+            font-size: 13px;
+            color: var(--text-dim);
+            margin-bottom: 30px;
+        }
+
+        .overlay-input {
+            width: 100%;
+            padding: 16px 20px;
+            background: var(--bg-input);
+            border: 2px solid rgba(0, 255, 136, 0.4);
+            border-radius: 12px;
+            color: var(--text);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 16px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .overlay-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 20px var(--glow);
+        }
+
+        .overlay-btn {
+            width: 100%;
+            padding: 16px;
+            background: var(--primary);
+            border: none;
+            border-radius: 12px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--bg-dark);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .overlay-btn:hover {
+            background: #00ffaa;
+            box-shadow: 0 0 30px var(--glow);
+        }
+
+        /* Console Log */
+        .console-section {
+            background: var(--bg-card);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 16px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .console-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .console-log {
+            font-size: 10px;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+
+        .console-log .log-entry {
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .console-log .log-time {
+            color: var(--primary-dim);
+            margin-right: 8px;
+        }
+
+        .console-log .log-type-info {
+            color: #00c8ff;
+        }
+
+        .console-log .log-type-success {
+            color: var(--primary);
+        }
+
+        .console-log .log-type-error {
+            color: var(--accent);
+        }
+
+        .console-log .log-type-data {
+            color: #ffcc00;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .app-container {
+                padding: 15px;
+            }
+
+            .brand-name {
+                font-size: 24px;
+            }
+
+            .prediction-display {
+                width: 150px;
+                height: 150px;
+            }
+
+            .prediction-value {
+                font-size: 56px;
+            }
+
+            .cups-visual {
+                gap: 20px;
+            }
+
+            .cup-icon {
+                width: 50px;
+                height: 65px;
+            }
+
+            .stats-bar {
+                padding: 15px 10px;
+            }
+
+            .stat-value {
+                font-size: 20px;
+            }
+
+            .live-data-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="matrix" id="matrixCanvas"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="brand-logo">
+                <img src="https://pfst.cf2.poecdn.net/base/image/65657b77e8839cfa847e4c4a811781bb99060deea0cc7a2b2e42b2d72a80e3ba?w=640&h=640" alt="X~Code Logo" class="badge-img">
+                <span class="brand-name">X~Code●</span>
+                <img src="https://pfst.cf2.poecdn.net/base/image/65657b77e8839cfa847e4c4a811781bb99060deea0cc7a2b2e42b2d72a80e3ba?w=640&h=640" alt="X~Code Logo" class="badge-img">
+            </div>
+            <span class="version-tag">THIMBLES DETECTOR v21.0 • AUTO + MANUEL</span>
+        </header>
+
+        <!-- WebSocket Status Bar -->
+        <div class="ws-status-bar">
+            <div class="ws-indicator" id="ws-indicator"></div>
+            <span class="ws-status-text" id="ws-status-text">Déconnecté</span>
+            <span class="ws-data-badge" id="ws-data-count">0 msgs</span>
+        </div>
+
+        <div class="session-counter">JEU DE SESSION : <strong id="session-game-count">0 / 15</strong></div>
+        <div class="session-alert" id="session-alert" role="alert" aria-live="assertive">
+            <span id="session-alert-message">ALERTES : CESSER DE JOUER, PUIS REVENEZ DANS 10 MINUTES.</span>
+            <span class="cooldown-time" id="cooldown-time"></span>
+        </div>
+
+        <!-- Control Section -->
+        <section class="control-section">
+            <div class="input-group">
+                <label class="input-label">Account ID</label>
+                <input type="text" class="input-field" id="account-id" placeholder="Entrez votre ID numérique">
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" id="start-btn">DÉMARRER</button>
+                <button class="btn btn-secondary" id="stop-btn" disabled>ARRÊTER</button>
+            </div>
+        </section>
+
+        <!-- Screen Capture Section -->
+        <section class="capture-section">
+            <div class="capture-header">
+                <span class="capture-title">Capteur Vidéo (Écran du jeu)</span>
+                <span class="capture-status" id="capture-status">Inactif</span>
+            </div>
+            <div class="capture-preview" id="capture-preview">
+                <video id="capture-video" autoplay muted playsinline></video>
+            </div>
+            <button class="capture-btn" id="capture-btn">CAPTURER L'ÉCRAN DU JEU</button>
+            <div class="capture-warning" id="capture-warning">
+                Capture vidéo requise. Allez sur l'onglet du jeu pour suivre le mélange des boîtes.
+            </div>
+        </section>
+
+        <!-- JOUER Alert -->
+        <div class="jouer-alert" id="jouer-alert">
+            <div class="jouer-dot"></div>
+            <span class="jouer-text">JOUER</span>
+            <div class="jouer-dot"></div>
+            <span class="jouer-countdown" id="jouer-countdown"></span>
+        </div>
+
+        <!-- Prediction Box -->
+        <section class="prediction-container">
+            <div class="prediction-title">Prédiction Active</div>
+
+            <div class="prediction-display">
+                <div class="prediction-ring"></div>
+                <div class="prediction-ring"></div>
+                <div class="prediction-ring"></div>
+                <span class="prediction-value" id="prediction-value">—</span>
+            </div>
+
+            <div class="prediction-label" id="prediction-label">En attente...</div>
+
+            <div class="prediction-status inactive" id="prediction-status">
+                <span class="status-dot"></span>
+                <span id="status-text">Inactif</span>
+            </div>
+
+            <!-- Cups Visual + Mode Manuel -->
+            <div class="cups-visual" id="cups-container">
+                <div class="cup-item" data-cup="1">
+                    <div class="cup-icon"></div>
+                    <span class="cup-number">1</span>
+                    <div class="cup-select-circle"></div>
+                </div>
+                <div class="cup-item" data-cup="2">
+                    <div class="cup-icon"></div>
+                    <span class="cup-number">2</span>
+                    <div class="cup-select-circle"></div>
+                </div>
+                <div class="cup-item" data-cup="3">
+                    <div class="cup-icon"></div>
+                    <span class="cup-number">3</span>
+                    <div class="cup-select-circle"></div>
+                </div>
+                <button id="mark-loss-btn" type="button" aria-label="Signaler une prédiction échouée" disabled style="align-self:center; flex:0 0 auto; padding:12px 10px; border:2px solid #ff3333; border-radius:10px; background:#b91c1c; color:white; font-family:'Orbitron',sans-serif; font-size:10px; font-weight:700; cursor:pointer; box-shadow:0 0 14px rgba(255,40,40,.35); opacity:.45;">ÉCHEC ✕</button>
+            </div>
+            <div style="text-align:center;font-size:11px;color:var(--text-dim);margin-top:8px;">
+                Quand <b>JOUER</b> apparaît → pointe la boîte <b>SANS boule</b> avant la fin du compte à rebours
+            </div>
+
+            <!-- Live Data Panel -->
+            <div class="live-data-panel">
+                <div class="live-data-title">Données Live WebSocket</div>
+                <div class="live-data-grid">
+                    <div class="live-data-item">
+                        <div class="live-data-value" id="live-round">—</div>
+                        <div class="live-data-label">Round</div>
+                    </div>
+                    <div class="live-data-item">
+                        <div class="live-data-value" id="live-result">—</div>
+                        <div class="live-data-label">Dernier</div>
+                    </div>
+                    <div class="live-data-item">
+                        <div class="live-data-value" id="live-confidence">—</div>
+                        <div class="live-data-label">Confiance</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value" id="stat-accuracy">0%</div>
+                <div class="stat-label">Précision</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="stat-games">0</div>
+                <div class="stat-label">Parties</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="stat-success">0%</div>
+                <div class="stat-label">Succès</div>
+            </div>
+        </div>
+
+        <!-- History -->
+        <section class="history-section">
+            <div class="history-header">
+                <span class="history-title">Historique</span>
+                <button class="history-clear" id="clear-history">Effacer</button>
+            </div>
+            <div class="history-list" id="history-list">
+                <span style="color: var(--text-dim); font-size: 12px;">Aucune prédiction</span>
+            </div>
+        </section>
+
+        <!-- Console Log -->
+        <section class="console-section">
+            <div class="console-title">Console WebSocket</div>
+            <div class="console-log" id="console-log"></div>
+        </section>
+    </div>
+
+    <!-- Startup Overlay -->
+    <div class="overlay" id="overlay">
+        <div class="overlay-box">
+            <div class="overlay-brand">X~Code●</div>
+            <div class="overlay-subtitle">Système de Détection Thimbles + WebSocket Live</div>
+            <input type="text" class="overlay-input" id="overlay-input" placeholder="Entrez votre Account ID">
+            <button class="overlay-btn" id="overlay-btn">ACTIVER LE SYSTÈME</button>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // Dark mode detection
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+            }
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+                if (event.matches) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            });
+
+            // State
+            const state = {
+                isRunning: false,
+                accountId: null,
+                currentPrediction: null,
+                history: [],
+                stats: {
+                    games: 0,
+                    correct: 0,
+                    attempts: 0,
+                    consecutiveLosses: 0,
+                    pendingRound: null,
+                    recoveryPending: false,
+                    recoveryAttempts: 0,
+                    sessionGames: Number(localStorage.getItem('thimbleSessionGames') || 0),
+                    cooldownUntil: Number(localStorage.getItem('thimbleCooldownUntil') || 0),
+                    resumeAfterCooldown: false
+                },
+                // WebSocket state
+                ws: null,
+                wsConnected: false,
+                wsMessageCount: 0,
+                wsReconnectAttempts: 0,
+                maxReconnectAttempts: 10,
+                reconnectDelay: 3000,
+                // Live game data from WebSocket
+                liveData: {
+                    lastResults: [],
+                    currentRound: null,
+                    gameState: null,
+                    serverTime: null
+                },
+                // Screen capture
+                captureStream: null,
+                isCapturing: false,
+                // Mode manuel : boîte SANS boule pointée par l'utilisateur
+                emptyBoxSelected: null
+            };
+
+            // Elements
+            const el = {
+                overlay: document.getElementById('overlay'),
+                overlayInput: document.getElementById('overlay-input'),
+                overlayBtn: document.getElementById('overlay-btn'),
+                accountInput: document.getElementById('account-id'),
+                startBtn: document.getElementById('start-btn'),
+                stopBtn: document.getElementById('stop-btn'),
+                predictionValue: document.getElementById('prediction-value'),
+                predictionLabel: document.getElementById('prediction-label'),
+                predictionStatus: document.getElementById('prediction-status'),
+                statusText: document.getElementById('status-text'),
+                cupsContainer: document.getElementById('cups-container'),
+                statAccuracy: document.getElementById('stat-accuracy'),
+                statGames: document.getElementById('stat-games'),
+                statSuccess: document.getElementById('stat-success'),
+                historyList: document.getElementById('history-list'),
+                clearHistory: document.getElementById('clear-history'),
+                // WebSocket elements
+                wsIndicator: document.getElementById('ws-indicator'),
+                wsStatusText: document.getElementById('ws-status-text'),
+                wsDataCount: document.getElementById('ws-data-count'),
+                liveRound: document.getElementById('live-round'),
+                liveResult: document.getElementById('live-result'),
+                liveConfidence: document.getElementById('live-confidence'),
+                consoleLog: document.getElementById('console-log'),
+                // Jouer alert elements
+                jouerAlert: document.getElementById('jouer-alert'),
+                jouerCountdown: document.getElementById('jouer-countdown'),
+                // Capture elements
+                captureBtn: document.getElementById('capture-btn'),
+                captureStatus: document.getElementById('capture-status'),
+                capturePreview: document.getElementById('capture-preview'),
+                captureVideo: document.getElementById('capture-video'),
+                captureWarning: document.getElementById('capture-warning'),
+                markLossBtn: document.getElementById('mark-loss-btn'),
+                sessionAlert: document.getElementById('session-alert'),
+                sessionAlertMessage: document.getElementById('session-alert-message'),
+                cooldownTime: document.getElementById('cooldown-time'),
+                sessionGameCount: document.getElementById('session-game-count')
+            };
+
+            // Jouer alert timing variables
+            let jouerCountdownInterval = null;
+
+            // Show JOUER alert with countdown
+            function showJouerAlert(seconds) {
+                el.jouerAlert.classList.add('active');
+                let remaining = seconds;
+                el.jouerCountdown.textContent = remaining + 's';
+
+                if (jouerCountdownInterval) {
+                    clearInterval(jouerCountdownInterval);
+                }
+
+                jouerCountdownInterval = setInterval(() => {
+                    remaining--;
+                    if (remaining > 0) {
+                        el.jouerCountdown.textContent = remaining + 's';
+                    } else {
+                        el.jouerCountdown.textContent = '';
+                    }
+                }, 1000);
+
+                logToConsole('🔴 JOUER - Misez maintenant!', 'success');
+            }
+
+            // Hide JOUER alert
+            function hideJouerAlert() {
+                el.jouerAlert.classList.remove('active');
+                if (jouerCountdownInterval) {
+                    clearInterval(jouerCountdownInterval);
+                    jouerCountdownInterval = null;
+                }
+                el.jouerCountdown.textContent = '';
+            }
+
+            // Console logging
+            function logToConsole(message, type = 'info') {
+                const time = new Date().toLocaleTimeString('fr-FR');
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.innerHTML = `<span class="log-time">[${time}]</span><span class="log-type-${type}">${message}</span>`;
+                el.consoleLog.insertBefore(entry, el.consoleLog.firstChild);
+
+                // Keep only last 50 entries
+                while (el.consoleLog.children.length > 50) {
+                    el.consoleLog.removeChild(el.consoleLog.lastChild);
+                }
+            }
+
+            // ========== SCREEN CAPTURE (Capteur Vidéo) ==========
+            async function startScreenCapture() {
+                try {
+                    if (state.isCapturing) {
+                        stopScreenCapture();
+                        return;
+                    }
+
+                    const stream = await navigator.mediaDevices.getDisplayMedia({
+                        video: {
+                            displaySurface: 'browser',
+                            frameRate: 15
+                        },
+                        audio: false
+                    });
+
+                    state.captureStream = stream;
+                    state.isCapturing = true;
+
+                    el.captureVideo.srcObject = stream;
+                    el.capturePreview.classList.add('active');
+                    el.captureBtn.classList.add('active');
+                    el.captureBtn.textContent = 'ARRÊTER LA CAPTURE';
+                    el.captureStatus.textContent = 'Actif';
+                    el.captureStatus.classList.add('active');
+                    el.captureWarning.classList.remove('visible');
+
+                    logToConsole('✓ Capture d\'écran du jeu activée', 'success');
+
+                    // If user stops sharing from browser UI
+                    stream.getVideoTracks()[0].onended = () => {
+                        stopScreenCapture();
+                        logToConsole('Capture d\'écran arrêtée par l\'utilisateur', 'error');
+                    };
+
+                } catch (err) {
+                    logToConsole('Capture refusée ou erreur: ' + err.message, 'error');
+                    el.captureWarning.classList.add('visible');
+                    el.captureWarning.textContent = 'Capture refusée. Autorisez le partage de l\'onglet du jeu.';
+                }
+            }
+
+            function stopScreenCapture() {
+                if (state.captureStream) {
+                    state.captureStream.getTracks().forEach(track => track.stop());
+                    state.captureStream = null;
+                }
+                state.isCapturing = false;
+
+                el.captureVideo.srcObject = null;
+                el.capturePreview.classList.remove('active');
+                el.captureBtn.classList.remove('active');
+                el.captureBtn.textContent = 'CAPTURER L\'ÉCRAN DU JEU';
+                el.captureStatus.textContent = 'Inactif';
+                el.captureStatus.classList.remove('active');
+
+                logToConsole('Capture d\'écran désactivée', 'info');
+            }
+
+            function isCaptureActive() {
+                return state.isCapturing && state.captureStream &&
+                       state.captureStream.getVideoTracks().length > 0 &&
+                       state.captureStream.getVideoTracks()[0].readyState === 'live';
+            }
+
+            // WebSocket Connection
+            function connectWebSocket() {
+                if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                    return;
+                }
+
+                updateWsStatus('connecting');
+                logToConsole('Connexion au serveur WebSocket...', 'info');
+
+                try {
+                    state.ws = new WebSocket('wss://eg1xbet.com/games-frame/sockets/thimble?appGuid=00000000-0000-0000-0000-000000000000&whence=110&fcountry=66&ref=1&gr=0&lng=ar&access_token=eyJhYWN0aXZpdHkiOjMwLCJhY2NvdW50Ijo5OTM2OTQyNTF9');
+
+                    state.ws.onopen = function() {
+                        state.wsConnected = true;
+                        state.wsReconnectAttempts = 0;
+                        updateWsStatus('connected');
+                        logToConsole('✓ Connexion WebSocket établie!', 'success');
+                    };
+
+                    state.ws.onmessage = function(event) {
+                        state.wsMessageCount++;
+                        el.wsDataCount.textContent = state.wsMessageCount + ' msgs';
+
+                        // Indicateur visuel : vraies données reçues
+                        const livePanel = document.querySelector('.live-data-panel');
+                        if (livePanel) {
+                            livePanel.classList.add('has-live-data');
+                        }
+
+                        try {
+                            const data = JSON.parse(event.data);
+                            handleWebSocketMessage(data);
+                        } catch (e) {
+                            // Handle non-JSON messages
+                            handleRawMessage(event.data);
+                        }
+                    };
+
+                    state.ws.onclose = function(event) {
+                        state.wsConnected = false;
+                        updateWsStatus('disconnected');
+                        logToConsole(`Connexion fermée (code: ${event.code})`, 'error');
+
+                        // Attempt reconnection
+                        if (state.isRunning && state.wsReconnectAttempts < state.maxReconnectAttempts) {
+                            state.wsReconnectAttempts++;
+                            logToConsole(`Reconnexion dans ${state.reconnectDelay/1000}s... (tentative ${state.wsReconnectAttempts}/${state.maxReconnectAttempts})`, 'info');
+                            setTimeout(connectWebSocket, state.reconnectDelay);
+                        }
+                    };
+
+                    state.ws.onerror = function(error) {
+                        logToConsole('Erreur WebSocket', 'error');
+                        updateWsStatus('disconnected');
+                    };
+
+                } catch (error) {
+                    logToConsole('Erreur création WebSocket: ' + error.message, 'error');
+                    updateWsStatus('disconnected');
+                }
+            }
+
+            function disconnectWebSocket() {
+                if (state.ws) {
+                    state.ws.close();
+                    state.ws = null;
+                }
+                state.wsConnected = false;
+                updateWsStatus('disconnected');
+            }
+
+            function updateWsStatus(status) {
+                el.wsIndicator.className = 'ws-indicator';
+                el.wsStatusText.className = 'ws-status-text';
+
+                switch(status) {
+                    case 'connected':
+                        el.wsIndicator.classList.add('connected');
+                        el.wsStatusText.classList.add('connected');
+                        el.wsStatusText.textContent = 'Connecté';
+                        break;
+                    case 'connecting':
+                        el.wsIndicator.classList.add('connecting');
+                        el.wsStatusText.textContent = 'Connexion...';
+                        break;
+                    default:
+                        el.wsStatusText.textContent = 'Déconnecté';
+                }
+            }
+
+            // Handle WebSocket messages
+            function handleWebSocketMessage(data) {
+                logToConsole('Data: ' + JSON.stringify(data).substring(0, 100) + '...', 'data');
+
+                // Extract game information based on message structure
+                if (data.type === 'game' || data.game) {
+                    const gameData = data.game || data;
+
+                    if (gameData.result !== undefined) {
+                        const result = parseInt(gameData.result) + 1; // Convert 0-based to 1-based
+                        state.liveData.lastResults.unshift(result);
+                        if (state.liveData.lastResults.length > 20) {
+                            state.liveData.lastResults.pop();
+                        }
+                        el.liveResult.textContent = result;
+                        logToConsole(`Résultat détecté: Gobelet ${result}`, 'success');
+                    }
+
+                    if (gameData.round || gameData.roundId) {
+                        state.liveData.currentRound = gameData.round || gameData.roundId;
+                        el.liveRound.textContent = state.liveData.currentRound;
+                    }
+
+                    if (gameData.state) {
+                        state.liveData.gameState = gameData.state;
+                    }
+                }
+
+                // Handle result messages
+                if (data.result !== undefined) {
+                    const result = parseInt(data.result) + 1;
+                    state.liveData.lastResults.unshift(result);
+                    if (state.liveData.lastResults.length > 20) {
+                        state.liveData.lastResults.pop();
+                    }
+                    el.liveResult.textContent = result;
+                    logToConsole(`Résultat: Gobelet ${result}`, 'success');
+                }
+
+                // Handle thimble specific data
+                if (data.thimble !== undefined || data.cup !== undefined || data.position !== undefined) {
+                    const position = (data.thimble || data.cup || data.position) + 1;
+                    state.liveData.lastResults.unshift(position);
+                    if (state.liveData.lastResults.length > 20) {
+                        state.liveData.lastResults.pop();
+                    }
+                    el.liveResult.textContent = position;
+                    logToConsole(`Position détectée: ${position}`, 'success');
+                }
+
+                // Handle round info
+                if (data.round !== undefined || data.roundId !== undefined || data.id !== undefined) {
+                    state.liveData.currentRound = data.round || data.roundId || data.id;
+                    el.liveRound.textContent = String(state.liveData.currentRound).slice(-6);
+                }
+
+                // Handle history/results array
+                if (data.history && Array.isArray(data.history)) {
+                    state.liveData.lastResults = data.history.slice(0, 20).map(r => parseInt(r) + 1);
+                    if (state.liveData.lastResults.length > 0) {
+                        el.liveResult.textContent = state.liveData.lastResults[0];
+                    }
+                }
+
+                if (data.results && Array.isArray(data.results)) {
+                    state.liveData.lastResults = data.results.slice(0, 20).map(r => parseInt(r) + 1);
+                    if (state.liveData.lastResults.length > 0) {
+                        el.liveResult.textContent = state.liveData.lastResults[0];
+                    }
+                }
+
+                // Update confidence based on data
+                updateConfidence();
+
+                // If running, trigger new prediction based on live data
+                if (state.isRunning && state.liveData.lastResults.length > 0) {
+                    generateLivePrediction();
+                }
+            }
+
+            function handleRawMessage(data) {
+                logToConsole('Raw: ' + String(data).substring(0, 80), 'info');
+
+                // Try to extract numbers from raw messages
+                const numbers = String(data).match(/\d+/g);
+                if (numbers) {
+                    numbers.forEach(num => {
+                        const n = parseInt(num);
+                        if (n >= 0 && n <= 2) {
+                            const result = n + 1;
+                            state.liveData.lastResults.unshift(result);
+                            if (state.liveData.lastResults.length > 20) {
+                                state.liveData.lastResults.pop();
+                            }
+                        }
+                    });
+                }
+            }
+
+            function updateConfidence() {
+                if (state.liveData.lastResults.length === 0) {
+                    el.liveConfidence.textContent = '—';
+                    return;
+                }
+
+                // Calculate confidence based on pattern detection
+                const recentResults = state.liveData.lastResults.slice(0, 10);
+                const counts = [0, 0, 0];
+                recentResults.forEach(r => {
+                    if (r >= 1 && r <= 3) counts[r - 1]++;
+                });
+
+                const max = Math.max(...counts);
+                const confidence = Math.min(95, 60 + (max * 5) + state.liveData.lastResults.length);
+                el.liveConfidence.textContent = confidence + '%';
+            }
+
+            // Secure random
+            function secureRandom(max) {
+                if (window.crypto && crypto.getRandomValues) {
+                    const arr = new Uint32Array(1);
+                    crypto.getRandomValues(arr);
+                    return arr[0] % max;
+                }
+                return Math.floor(Math.random() * max);
+            }
+
+            // Pause obligatoire de 10 minutes après le 15e jeu, après une victoire au 14e,
+            // ou après deux tentatives de rattrapage ratées.
+            let cooldownInterval = null;
+
+            function formatRemaining(ms) {
+                const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
+                return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+
+            function updateCooldownUI() {
+                const remaining = state.stats.cooldownUntil - Date.now();
+                if (remaining > 0) {
+                    el.sessionAlert.classList.add('active');
+                    el.sessionAlertMessage.textContent = 'ALERTES : CESSER DE JOUER, PUIS REVENEZ DANS 10 MINUTES.';
+                    el.cooldownTime.textContent = `REPRISE DANS ${formatRemaining(remaining)}`;
+                    el.cupsContainer.classList.add('cooldown-hidden');
+                    el.startBtn.disabled = true;
+                    el.stopBtn.disabled = true;
+                    return true;
+                }
+
+                let cooldownJustEnded = false;
+                if (state.stats.cooldownUntil) {
+                    state.stats.cooldownUntil = 0;
+                    localStorage.removeItem('thimbleCooldownUntil');
+                    state.stats.sessionGames = 0;
+                    localStorage.removeItem('thimbleSessionGames');
+                    el.sessionGameCount.textContent = '0 / 15';
+                    cooldownJustEnded = true;
+                    logToConsole('Pause terminée. Les boîtes réapparaissent et le compteur de session est remis à zéro.', 'info');
+                }
+                el.sessionAlert.classList.remove('active');
+                el.cooldownTime.textContent = '';
+                el.cupsContainer.classList.remove('cooldown-hidden');
+                if (!state.isRunning) el.startBtn.disabled = false;
+
+                // Si la détection tournait avant l'alerte, elle reprend automatiquement.
+                if (cooldownJustEnded && state.stats.resumeAfterCooldown) {
+                    state.stats.resumeAfterCooldown = false;
+                    startDetection();
+                }
+                return false;
+            }
+
+            function startCooldown(reason) {
+                state.stats.resumeAfterCooldown = state.isRunning;
+                state.stats.cooldownUntil = Date.now() + 10 * 60 * 1000;
+                localStorage.setItem('thimbleCooldownUntil', String(state.stats.cooldownUntil));
+                stopDetection();
+                // stopDetection arrête la détection, mais le drapeau conserve la reprise automatique.
+                el.cupsContainer.classList.add('cooldown-hidden');
+                el.predictionLabel.textContent = 'Cessez le jeu : pause obligatoire de 10 minutes.';
+                logToConsole(`Alerte déclenchée — cessez de jouer pendant 10 minutes : ${reason}`, 'error');
+                updateCooldownUI();
+            }
+
+            el.sessionGameCount.textContent = `${state.stats.sessionGames} / 15`;
+            cooldownInterval = setInterval(updateCooldownUI, 1000);
+            updateCooldownUI();
+
+            // Update stats display
+            function updateStats() {
+                const accuracy = state.stats.attempts > 0
+                    ? Math.round((state.stats.correct / state.stats.attempts) * 100)
+                    : 0;
+                const success = state.stats.games > 0
+                    ? Math.round((state.stats.correct / state.stats.games) * 100)
+                    : 0;
+
+                el.statAccuracy.textContent = accuracy + '%';
+                el.statGames.textContent = state.stats.games;
+                el.statSuccess.textContent = success + '%';
+            }
+
+            // Show prediction + Capteur de boîtes (rouge léger sur les 2 autres)
+            function showPrediction(cup) {
+                state.currentPrediction = cup;
+
+                el.predictionValue.textContent = cup;
+                el.predictionValue.classList.remove('scanning');
+                el.predictionLabel.textContent = `Gobelet ${cup} détecté (capteur)`;
+
+                // Update cups visual : predit = active (vert + balle), les 2 autres = sensor-red
+                document.querySelectorAll('.cup-item').forEach(item => {
+                    const cupNum = parseInt(item.dataset.cup);
+                    item.classList.remove('active', 'sensor-red');
+                    if (cupNum === cup) {
+                        item.classList.add('active');
+                    } else {
+                        item.classList.add('sensor-red');
+                    }
+                });
+            }
+
+            // Start scanning animation
+            function startScanning() {
+                el.predictionValue.textContent = '...';
+                el.predictionValue.classList.add('scanning');
+                el.predictionLabel.textContent = 'Analyse données live + capteur...';
+
+                document.querySelectorAll('.cup-item').forEach(item => {
+                    item.classList.remove('active', 'sensor-red');
+                });
+            }
+
+            // Add to history
+            function addHistory(cup, isCorrect, isLive = false) {
+                state.history.unshift({ cup, isCorrect, isLive, time: Date.now() });
+                if (state.history.length > 15) state.history.pop();
+                renderHistory();
+            }
+
+            // Render history
+            function renderHistory() {
+                if (state.history.length === 0) {
+                    el.historyList.innerHTML = '<span style="color: var(--text-dim); font-size: 12px;">Aucune prédiction</span>';
+                    return;
+                }
+
+                el.historyList.innerHTML = state.history.map(item => {
+                    let className = 'history-item';
+                    if (item.isLive) className += ' live';
+                    else if (item.isCorrect) className += ' correct';
+                    else className += ' wrong';
+
+                    return `<span class="${className}">
+                        Gobelet ${item.cup} ${item.isLive ? '◉' : (item.isCorrect ? '✓' : '✗')}
+                    </span>`;
+                }).join('');
+            }
+
+            // Valide une manche : sans clic sur ÉCHEC, la manche est considérée gagnante.
+            function settlePendingRound(isCorrect) {
+                const round = state.stats.pendingRound;
+                if (!round || round.settled) return;
+                round.settled = true;
+                state.stats.games++;
+                state.stats.sessionGames++;
+                localStorage.setItem('thimbleSessionGames', String(state.stats.sessionGames));
+                el.sessionGameCount.textContent = `${state.stats.sessionGames} / 15`;
+                if (isCorrect) {
+                    state.stats.correct++;
+                    state.stats.consecutiveLosses = 0;
+                    if (round.isRecovery) {
+                        state.stats.recoveryPending = false;
+                        logToConsole(`Rattrapage réussi (${state.stats.recoveryAttempts}/2 utilisés) : retour au mode normal.`, 'success');
+                    }
+                } else {
+                    state.stats.consecutiveLosses++;
+                    if (!round.isRecovery) {
+                        state.stats.recoveryPending = true;
+                        state.stats.recoveryAttempts = 0;
+                    }
+                }
+                addHistory(round.cup, isCorrect, false);
+                updateStats();
+                state.stats.pendingRound = null;
+                el.markLossBtn.disabled = true;
+                el.markLossBtn.style.opacity = '0.45';
+                el.markLossBtn.textContent = isCorrect ? 'VALIDÉ ✓' : 'ÉCHEC ✕';
+                logToConsole(isCorrect ? 'Manche validée (aucun échec signalé).' : `Échec signalé. Pertes consécutives : ${state.stats.consecutiveLosses}.`, isCorrect ? 'success' : 'error');
+
+                // Limite de session : victoire au 14e = arrêt immédiat ; si le 14e est perdu,
+                // le cycle peut continuer jusqu'au 15e, qui déclenche toujours la pause.
+                if ((state.stats.sessionGames === 14 && isCorrect) || state.stats.sessionGames >= 15) {
+                    startCooldown(state.stats.sessionGames === 14 ? 'victoire au 14e jeu' : '15 jeux atteints');
+                    return;
+                }
+
+                // Garde-fou conservé : deux pertes consécutives déclenchent une pause.
+                if (state.stats.consecutiveLosses >= 2) {
+                    startCooldown('deux échecs consécutifs');
+                    return;
+                }
+
+                // Deux rattrapages maximum par session, même s'ils ont été réussis.
+                if (!isCorrect && !round.isRecovery && state.stats.recoveryAttempts >= 2) {
+                    startCooldown('limite de deux rattrapages atteinte');
+                    return;
+                }
+                if (round.isRecovery && !isCorrect && state.stats.recoveryAttempts >= 2) {
+                    startCooldown('deux tentatives de rattrapage utilisées');
+                    return;
+                }
+            }
+
+            // Generate prediction based on live WebSocket data
+            function generateLivePrediction() {
+                const recentResults = state.liveData.lastResults.slice(0, 10);
+
+                if (recentResults.length === 0) {
+                    return generateRandomPrediction();
+                }
+
+                // Analyze patterns
+                const counts = [0, 0, 0];
+                const weights = [1, 1, 1];
+
+                // Count occurrences with recency weighting
+                recentResults.forEach((result, index) => {
+                    if (result >= 1 && result <= 3) {
+                        const recencyWeight = 1 - (index * 0.08);
+                        counts[result - 1] += recencyWeight;
+                    }
+                });
+
+                // Strategy: Avoid most frequent (assuming game tries to vary)
+                // But also consider streaks
+                const lastResult = recentResults[0];
+                const secondLast = recentResults[1];
+
+                // Check for streak
+                let streakLength = 1;
+                for (let i = 1; i < recentResults.length; i++) {
+                    if (recentResults[i] === lastResult) streakLength++;
+                    else break;
+                }
+
+                // If streak detected, bet against continuation
+                if (streakLength >= 2) {
+                    weights[lastResult - 1] *= 0.3;
+                    logToConsole(`Streak ${streakLength}x sur ${lastResult} - évitement`, 'info');
+                }
+
+                // Prefer less frequent cups
+                const maxCount = Math.max(...counts);
+                const minCount = Math.min(...counts);
+
+                counts.forEach((count, i) => {
+                    if (count === maxCount) {
+                        weights[i] *= 0.6;
+                    } else if (count === minCount) {
+                        weights[i] *= 1.4;
+                    }
+                });
+
+                // Check for alternating pattern
+                if (recentResults.length >= 4) {
+                    const pattern1 = recentResults[0] !== recentResults[1] &&
+                                    recentResults[1] !== recentResults[2] &&
+                                    recentResults[2] !== recentResults[3];
+                    if (pattern1) {
+                        // Alternating - reduce weight of last result
+                        weights[lastResult - 1] *= 0.5;
+                    }
+                }
+
+                // Normalize and select
+                const totalWeight = weights.reduce((a, b) => a + b, 0);
+                const normalizedWeights = weights.map(w => w / totalWeight);
+
+                const rand = Math.random();
+                let cumulative = 0;
+                let prediction = 1;
+
+                for (let i = 0; i < 3; i++) {
+                    cumulative += normalizedWeights[i];
+                    if (rand < cumulative) {
+                        prediction = i + 1;
+                        break;
+                    }
+                }
+
+                return prediction;
+            }
+
+            // Fallback random prediction
+            function generateRandomPrediction() {
+                const recentCups = state.history.slice(0, 5).map(h => h.cup);
+                let weights = [1, 1, 1];
+
+                recentCups.forEach((cup, i) => {
+                    const weight = 1 - (i * 0.15);
+                    weights[cup - 1] *= (1 - weight * 0.3);
+                });
+
+                const total = weights.reduce((a, b) => a + b, 0);
+                weights = weights.map(w => w / total);
+
+                const rand = Math.random();
+                let cumulative = 0;
+                for (let i = 0; i < 3; i++) {
+                    cumulative += weights[i];
+                    if (rand < cumulative) return i + 1;
+                }
+                return secureRandom(3) + 1;
+            }
+
+            // Run prediction cycle
+            function runPrediction() {
+                if (!state.isRunning || updateCooldownUI()) return;
+
+                // TIMING
+                const jouerDuration = 5000;          // JOUER + temps pour pointer la boîte SANS boule
+                const predictionDisplayTime = 7000;  // La position reste 7 secondes
+                const pauseBetweenCycles = 800;
+
+                // Reset sélection précédente
+                state.emptyBoxSelected = null;
+                el.markLossBtn.disabled = true;
+                el.markLossBtn.style.opacity = '0.45';
+                el.markLossBtn.textContent = 'ÉCHEC ✕';
+                document.querySelectorAll('.cup-item').forEach(item => {
+                    item.classList.remove('manual-selected', 'active', 'sensor-red');
+                });
+
+                // Step 1: Afficher JOUER – l’utilisateur DOIT pointer la boîte SANS boule
+                showJouerAlert(Math.ceil(jouerDuration / 1000));
+                el.predictionValue.textContent = '—';
+                el.predictionLabel.textContent = 'JOUER → Pointe la boîte SANS boule maintenant !';
+                logToConsole('JOUER : pointez la boîte SANS boule avant la fin du compte à rebours', 'info');
+
+                // Step 2: Après le compte à rebours JOUER
+                setTimeout(() => {
+                    if (!state.isRunning) return;
+
+                    hideJouerAlert();
+
+                    // Vérifier si l’utilisateur a bien pointé une boîte SANS boule
+                    if (state.emptyBoxSelected === null || state.emptyBoxSelected === undefined) {
+                        el.predictionLabel.textContent = 'Aucune boîte SANS boule pointée → pas de prédiction';
+                        el.predictionValue.textContent = '—';
+                        logToConsole('Pas de sélection → cycle suivant', 'error');
+
+                        // On passe au prochain cycle
+                        setTimeout(() => {
+                            if (state.isRunning) runPrediction();
+                        }, 2000);
+                        return;
+                    }
+
+                    // L’utilisateur a pointé la boîte SANS boule → on calcule la prédiction
+                    // (la boule est forcément sur l’une des deux autres)
+                    const empty = state.emptyBoxSelected;
+                    const possible = [1, 2, 3].filter(n => n !== empty);
+
+                    // Utilise les données live si dispo, sinon choisit parmi les 2 restantes
+                    let prediction;
+                    if (state.liveData.lastResults.length > 0) {
+                        const livePred = generateLivePrediction();
+                        // Si la prédiction live tombe sur la boîte vide, on prend l’autre
+                        prediction = (livePred === empty) ? possible[secureRandom(2)] : livePred;
+                    } else {
+                        prediction = possible[secureRandom(2)];
+                    }
+
+                    // Afficher la prédiction
+                    showPrediction(prediction);
+                    el.predictionLabel.textContent = `Position : Gobelet ${prediction} (boîte ${empty} sans boule)`;
+                    state.stats.attempts++;
+                    const isRecovery = state.stats.recoveryPending;
+                    if (isRecovery) state.stats.recoveryAttempts++;
+                    state.stats.pendingRound = { cup: prediction, settled: false, isRecovery };
+                    if (isRecovery) {
+                        el.predictionLabel.textContent = `RATTRAPAGE ${state.stats.recoveryAttempts}/2 — Increase x2/x3 | Gobelet ${prediction}`;
+                        logToConsole(`Mode rattrapage ${state.stats.recoveryAttempts}/2 : Increase x2/x3 (indication uniquement, mise non automatisée).`, 'error');
+                    }
+                    el.markLossBtn.disabled = false;
+                    el.markLossBtn.style.opacity = '1';
+                    el.markLossBtn.textContent = 'ÉCHEC ✕';
+                    updateStats();
+                    logToConsole(`Prédiction → Gobelet ${prediction} | Boîte vide pointée : ${empty}`, 'success');
+
+                    // La position reste 7 secondes
+                    setTimeout(() => {
+                        if (!state.isRunning) return;
+
+                        // Si aucun clic sur ÉCHEC avant la fin de la manche, elle est validée.
+                        settlePendingRound(true);
+                        if (!state.isRunning || updateCooldownUI()) return;
+
+                        // Reset
+                        el.predictionValue.textContent = '—';
+                        el.predictionLabel.textContent = 'Prochain JOUER...';
+                        document.querySelectorAll('.cup-item').forEach(item => {
+                            item.classList.remove('active', 'sensor-red', 'manual-selected');
+                        });
+                        state.emptyBoxSelected = null;
+
+                        // Prochain cycle
+                        setTimeout(() => {
+                            if (state.isRunning) runPrediction();
+                        }, pauseBetweenCycles);
+
+                    }, predictionDisplayTime);
+
+                }, jouerDuration);
+            }
+
+            // Start detection
+            function startDetection() {
+                if (updateCooldownUI()) {
+                    el.predictionLabel.textContent = 'Pause obligatoire : attendez la fin du compte à rebours.';
+                    return;
+                }
+                const id = el.accountInput.value.trim();
+                const ALLOWED_ID = '1071021603';
+
+                if (!id || isNaN(id)) {
+                    el.accountInput.style.borderColor = '#ff6b35';
+                    setTimeout(() => el.accountInput.style.borderColor = '', 2000);
+                    return;
+                }
+
+                if (id !== ALLOWED_ID) {
+                    el.predictionLabel.textContent = 'Id non Configurer. Veuillez faire configurer votre Id';
+                    el.accountInput.style.borderColor = '#ff6b35';
+                    logToConsole('Id non Configurer. Veuillez faire configurer votre Id', 'error');
+                    setTimeout(() => {
+                        el.accountInput.style.borderColor = '';
+                        el.predictionLabel.textContent = 'En attente...';
+                    }, 4000);
+                    return;
+                }
+
+                state.accountId = id;
+                state.isRunning = true;
+
+                el.startBtn.disabled = true;
+                el.stopBtn.disabled = false;
+                el.predictionStatus.classList.remove('inactive');
+                el.statusText.textContent = 'Actif';
+
+                // Connect to WebSocket
+                connectWebSocket();
+
+                // Start prediction after brief delay for WS connection
+                setTimeout(runPrediction, 1500);
+            }
+
+            // Stop detection
+            function stopDetection() {
+                state.isRunning = false;
+                state.stats.pendingRound = null;
+                el.markLossBtn.disabled = true;
+                el.markLossBtn.style.opacity = '0.45';
+
+                // Disconnect WebSocket
+                disconnectWebSocket();
+
+                // Hide JOUER alert
+                hideJouerAlert();
+
+                // Optionally keep capture running so user doesn't have to re-share every time
+                // stopScreenCapture();
+
+                el.startBtn.disabled = state.stats.cooldownUntil > Date.now();
+                el.stopBtn.disabled = true;
+                el.predictionStatus.classList.add('inactive');
+                el.statusText.textContent = 'Inactif';
+                el.predictionValue.textContent = '—';
+                el.predictionValue.classList.remove('scanning');
+                el.predictionLabel.textContent = 'En attente...';
+                el.captureWarning.classList.remove('visible');
+
+                document.querySelectorAll('.cup-item').forEach(item => {
+                    item.classList.remove('active', 'sensor-red', 'manual-selected');
+                });
+                state.emptyBoxSelected = null;
+            }
+
+            // Activate from overlay
+            function activateSystem() {
+                const id = el.overlayInput.value.trim();
+                const ALLOWED_ID = '1071021603';
+
+                if (!id || isNaN(id)) {
+                    el.overlayInput.style.borderColor = '#ff6b35';
+                    setTimeout(() => el.overlayInput.style.borderColor = '', 2000);
+                    return;
+                }
+
+                if (id !== ALLOWED_ID) {
+                    el.overlayInput.style.borderColor = '#ff6b35';
+                    el.overlayInput.value = '';
+                    el.overlayInput.placeholder = 'Id non Configurer. Veuillez faire configurer votre Id';
+                    logToConsole('Id non Configurer. Veuillez faire configurer votre Id', 'error');
+                    setTimeout(() => {
+                        el.overlayInput.style.borderColor = '';
+                        el.overlayInput.placeholder = 'Entrez votre Account ID';
+                    }, 4000);
+                    return;
+                }
+
+                el.accountInput.value = id;
+                el.overlay.classList.add('hidden');
+            }
+
+            el.markLossBtn.disabled = true;
+            el.markLossBtn.style.opacity = '0.45';
+
+            // Event listeners
+            el.overlayBtn.addEventListener('click', activateSystem);
+            el.overlayInput.addEventListener('keypress', e => {
+                if (e.key === 'Enter') activateSystem();
+            });
+
+            el.startBtn.addEventListener('click', startDetection);
+            el.stopBtn.addEventListener('click', stopDetection);
+            el.captureBtn.addEventListener('click', startScreenCapture);
+
+            el.markLossBtn.addEventListener('click', () => {
+                if (!state.stats.pendingRound || state.stats.pendingRound.settled) return;
+                settlePendingRound(false);
+                el.predictionLabel.textContent = state.isRunning
+                    ? 'Échec enregistré manuellement. Attends le prochain tour.'
+                    : 'Pause de sécurité après 2 échecs consécutifs.';
+            });
+
+            el.clearHistory.addEventListener('click', () => {
+                state.history = [];
+                state.stats = { games: 0, correct: 0, attempts: 0, consecutiveLosses: 0, pendingRound: null, recoveryPending: false, recoveryAttempts: 0, sessionGames: state.stats.sessionGames, cooldownUntil: state.stats.cooldownUntil, resumeAfterCooldown: state.stats.resumeAfterCooldown };
+                state.liveData.lastResults = [];
+                state.emptyBoxSelected = null;
+                el.markLossBtn.disabled = true;
+                el.markLossBtn.style.opacity = '0.45';
+                el.markLossBtn.textContent = 'ÉCHEC ✕';
+                document.querySelectorAll('.cup-item').forEach(item => {
+                    item.classList.remove('manual-selected', 'active', 'sensor-red');
+                });
+                renderHistory();
+                updateStats();
+                el.liveResult.textContent = '—';
+                el.liveRound.textContent = '—';
+                el.liveConfidence.textContent = '—';
+                el.predictionValue.textContent = '—';
+                el.predictionLabel.textContent = 'En attente...';
+                el.consoleLog.innerHTML = '';
+                logToConsole('Historique effacé', 'info');
+            });
+
+            // Cup click handlers - Mode Manuel : pointer la boîte SANS boule (une seule)
+            document.querySelectorAll('.cup-item').forEach(cup => {
+                cup.addEventListener('click', () => {
+                    const cupNum = parseInt(cup.dataset.cup);
+
+                    // Toggle / select only one
+                    const alreadySelected = cup.classList.contains('manual-selected');
+
+                    document.querySelectorAll('.cup-item').forEach(item => {
+                        item.classList.remove('manual-selected');
+                    });
+
+                    if (!alreadySelected) {
+                        cup.classList.add('manual-selected');
+                        state.emptyBoxSelected = cupNum;          // boîte SANS boule
+                        state.currentPrediction = null;
+                        el.predictionValue.textContent = '—';
+                        el.predictionLabel.textContent = `Boîte SANS boule pointée : ${cupNum} → prédiction auto désactivée`;
+                        logToConsole(`Mode manuel → Boîte SANS boule = ${cupNum}`, 'success');
+                    } else {
+                        // Deselect → prédiction auto redevient possible
+                        state.emptyBoxSelected = null;
+                        state.currentPrediction = null;
+                        el.predictionValue.textContent = '—';
+                        el.predictionLabel.textContent = 'Aucune boîte pointée → prédiction auto autorisée';
+                        logToConsole('Sélection manuelle annulée → prédiction auto possible', 'info');
+                    }
+                });
+            });
+
+            // Matrix effect
+            function startMatrix() {
+                const container = document.getElementById('matrixCanvas');
+                if (!container) return;
+
+                const canvas = document.createElement('canvas');
+                container.appendChild(canvas);
+                const ctx = canvas.getContext('2d');
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+
+                const katakana = "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン";
+                const latin = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                const nums = "0123456789";
+                const alphabet = katakana + latin + nums;
+
+                const fontSize = 16;
+                let columns = Math.floor(canvas.width / fontSize);
+                let drops = Array.from({ length: columns }).fill(1);
+
+                function draw() {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    ctx.fillStyle = '#0F0';
+                    ctx.font = fontSize + 'px monospace';
+
+                    for (let i = 0; i < drops.length; i++) {
+                        const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+                        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                            drops[i] = 0;
+                        }
+                        drops[i]++;
+                    }
+                }
+                setInterval(draw, 50);
+
+                window.addEventListener('resize', () => {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                    columns = Math.floor(canvas.width / fontSize);
+                    drops = Array.from({ length: columns }).fill(1);
+                });
+            }
+
+            // Initialize
+            updateStats();
+            renderHistory();
+            logToConsole('Système X~Code● v19.0 initialisé', 'success');
+            logToConsole('WebSocket Live Mode activé', 'info');
+            startMatrix();
+
+        })();
+    </script>
+</body>
+</html>
+
